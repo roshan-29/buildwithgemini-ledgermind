@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LedgerMind — Personal Finance Assistant</title>
+<!-- Optional: used only to draw A2UI Icon components. If it can't load (offline/
+     corp network), icons fall back to showing their name as text. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
+<style>
+  :root {
+    --accent: #0d9488;
+    --accent-dark: #0f766e;
+    --accent-light: #ccfbf1;
+    --bg-page: #f8fafc;
+    --bg-chat: #ffffff;
+    --border: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-muted: #64748b;
+    --user-bubble: #0d9488;
+    --agent-bubble: #f8fafc;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg-page);
+    display: flex;
+    justify-content: center;
+    height: 100vh;
+    color: var(--text-primary);
+  }
+  .app-container {
+    width: 100%;
+    max-width: 860px;
+    height: 100vh;
+    background: var(--bg-chat);
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-md);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+  header {
+    background: linear-gradient(135deg, #0d9488 0%, #115e59 100%);
+    color: #fff;
+    padding: 1rem 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: var(--shadow-sm);
+  }
+  .header-icon {
+    font-size: 1.6rem;
+    background: rgba(255,255,255,0.2);
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .header-meta h1 { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+  .header-meta p { margin: 0; font-size: 0.8rem; opacity: 0.9; }
+  .status-badge {
+    margin-left: auto;
+    font-size: 0.75rem;
+    background: rgba(255,255,255,0.18);
+    padding: 0.25rem 0.65rem;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .status-dot { width: 7px; height: 7px; background: #4ade80; border-radius: 50%; box-shadow: 0 0 6px #4ade80; }
+
+  #log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  /* Dialogue rows with avatars */
+  .msg-row { display: flex; gap: 0.75rem; width: 100%; max-width: 100%; }
+  .msg-row.user { justify-content: flex-end; }
+  .msg-row.agent { justify-content: flex-start; }
+
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+    flex-shrink: 0;
+  }
+  .msg-row.agent .avatar { background: var(--accent-light); color: var(--accent-dark); border: 1px solid #99f6e4; }
+  .msg-row.user .avatar { background: #e2e8f0; color: #475569; }
+
+  .msg-content { display: flex; flex-direction: column; max-width: 82%; }
+  .msg-row.user .msg-content { align-items: flex-end; }
+
+  .sender-label { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem; padding: 0 0.2rem; }
+
+  .bubble {
+    padding: 0.75rem 1.05rem;
+    border-radius: 16px;
+    line-height: 1.55;
+    font-size: 0.95rem;
+    white-space: pre-wrap;
+    box-shadow: var(--shadow-sm);
+  }
+  .msg-row.user .bubble {
+    background: var(--user-bubble);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .msg-row.agent .bubble {
+    background: var(--agent-bubble);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+  .bubble.rich {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  /* --- A2UI component styles (Card, Column, Row, Text, Divider, List, Image, Icon) --- */
+  .a2card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 1.2rem;
+    background: #ffffff;
+    box-shadow: var(--shadow-md);
+    width: 100%;
+    margin-top: 0.25rem;
+  }
+  .a2col { display: flex; flex-direction: column; gap: 0.5rem; }
+  .a2row { display: flex; flex-direction: row; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+  .a2row.between { justify-content: space-between; }
+  .a2text { margin: 0; line-height: 1.5; }
+  .a2text.a2-h1 { font-size: 1.45rem; font-weight: 700; color: #0f172a; letter-spacing: -0.01em; }
+  .a2text.a2-h2 { font-size: 1.2rem; font-weight: 700; color: #0f172a; border-bottom: 1px solid #f1f5f9; padding-bottom: 0.3rem; }
+  .a2text.a2-h3 { font-size: 1.05rem; font-weight: 600; color: #0f172a; }
+  .a2text.a2-h4 { font-size: 0.95rem; font-weight: 600; color: #0f172a; }
+  .a2text.a2-caption { font-size: 0.82rem; color: var(--text-muted); }
+  .a2divider { border: none; border-top: 1px solid var(--border); margin: 0.5rem 0; width: 100%; }
+  .a2img { max-width: 100%; border-radius: 10px; display: block; box-shadow: var(--shadow-sm); }
+  .material-symbols-outlined { font-family: 'Material Symbols Outlined'; font-size: 1.25rem; line-height: 1; vertical-align: middle; color: var(--accent); }
+
+  /* Interactive prompt pills */
+  .prompts-container {
+    padding: 0.6rem 1.4rem 0.25rem;
+    background: #ffffff;
+    border-top: 1px solid #f1f5f9;
+  }
+  .prompts-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin-bottom: 0.4rem; }
+  .prompts-row { display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem; }
+  .prompt-pill {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    color: #334155;
+    padding: 0.4rem 0.85rem;
+    border-radius: 20px;
+    font-size: 0.83rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .prompt-pill:hover {
+    background: var(--accent-light);
+    color: var(--accent-dark);
+    border-color: #5eead4;
+    transform: translateY(-1px);
+  }
+
+  /* Header action buttons */
+  .header-actions { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
+  .header-btn {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    padding: 0.3rem 0.65rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: background 0.15s;
+  }
+  .header-btn:hover { background: rgba(255,255,255,0.35); }
+
+  /* Animated typing indicator */
+  .typing-indicator { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px; }
+  .typing-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; opacity: 0.5; animation: typing-bounce 1.3s infinite ease-in-out; }
+  .typing-dot:nth-child(1) { animation-delay: 0s; }
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typing-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* Formatted markdown text spans */
+  .text-bold { font-weight: 600; color: #0f172a; }
+  .text-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: #f1f5f9; padding: 0.15em 0.4em; border-radius: 4px; color: #0f766e; }
+  .text-bullet { margin-left: 1rem; position: relative; }
+  .text-bullet::before { content: "•"; position: absolute; left: -0.75rem; color: var(--accent); }
+
+  /* Quick Expense Logger Bar */
+  .quick-logger {
+    padding: 0.6rem 1.4rem;
+    background: #f1f5f9;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .quick-logger-title { font-size: 0.78rem; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 0.3rem; margin-right: 0.25rem; }
+  .ql-input {
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    background: #fff;
+  }
+  .ql-input.amount { width: 90px; }
+  .ql-input.merchant { flex: 1; min-width: 120px; }
+  .ql-select {
+    padding: 0.45rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    background: #fff;
+    cursor: pointer;
+  }
+  .ql-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 0.45rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .ql-btn:hover { background: var(--accent-dark); }
+</style>
+</head>
+<body>
+<div class="app-container">
+  <header>
+    <div class="header-icon">💳</div>
+    <div class="header-meta">
+      <h1>LedgerMind</h1>
+      <p>Personal Finance Concierge</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="header-btn" id="clearBtn" title="Reset conversation">🔄 New Session</button>
+      <div class="status-badge">
+        <span class="status-dot"></span> Online
+      </div>
+    </div>
+  </header>
+
+  <div id="log"></div>
+
+  <div class="quick-logger">
+    <span class="quick-logger-title">⚡ Quick Log:</span>
+    <input type="number" step="0.01" class="ql-input amount" id="qlAmount" placeholder="Amount ($)">
+    <input type="text" class="ql-input merchant" id="qlMerchant" placeholder="Merchant (e.g. Trader Joe's)">
+    <select class="ql-select" id="qlCategory">
+      <option value="Groceries">Groceries</option>
+      <option value="Dining">Dining</option>
+      <option value="Utilities">Utilities</option>
+      <option value="Shopping">Shopping</option>
+      <option value="Travel">Travel</option>
+      <option value="Entertainment">Entertainment</option>
+    </select>
+    <button type="button" class="ql-btn" id="qlSubmit">+ Log</button>
+  </div>
+
+  <div class="prompts-container">
+    <div class="prompts-label">Suggested Inquiries</div>
+    <div class="prompts-row" id="promptsRow">
+      <button type="button" class="prompt-pill" data-prompt="Log $42.50 for groceries at Trader Joe's today">🛒 Log $42.50 groceries</button>
+      <button type="button" class="prompt-pill" data-prompt="What is my budget status for this month?">📊 Check budget status</button>
+      <button type="button" class="prompt-pill" data-prompt="Convert $150 USD to EUR and JPY">💱 Convert $150 to EUR/JPY</button>
+    </div>
+  </div>
+
+  <form id="form">
+    <input id="input" placeholder="Ask LedgerMind about expenses, budgets, or exchange rates…" autocomplete="off" autofocus>
+    <button class="send-btn">Send</button>
+  </form>
+</div>
+
+<script>
+const log = document.getElementById("log");
+const form = document.getElementById("form");
+const input = document.getElementById("input");
+
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+function bubble(who) {
+  const row = el("div", "msg-row " + who);
+  const avatar = el("div", "avatar", who === "user" ? "👤" : "💳");
+  const content = el("div", "msg-content");
+  const sender = el("div", "sender-label", who === "user" ? "You" : "LedgerMind");
+  const b = el("div", "bubble");
+
+  content.appendChild(sender);
+  content.appendChild(b);
+
+  if (who === "agent") {
+    row.appendChild(avatar);
+    row.appendChild(content);
+  } else {
+    row.appendChild(content);
+    row.appendChild(avatar);
+  }
+
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+  return b;
+}
+
+/* ----------------------------------------------------------------------------
+ * A2UI mini-renderer (v0.8 Basic Catalog subset).
+ * Renders Card / Column / Row / Text / Divider / List / Image / Icon.
+ * Anything else falls back to plain text (see renderReply). All text goes in via
+ * textContent and image URLs are validated, so agent output can't inject HTML.
+ * -------------------------------------------------------------------------- */
+
+// A "bound value" is usually {literalString: "..."}; we only support literals.
+function boundStr(v) {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v.literalString === "string") return v.literalString;
+  return "";
+}
+
+// child ids of a component's props: single `child` and/or `children.explicitList`.
+function childIds(props) {
+  const ids = [];
+  if (props && typeof props.child === "string") ids.push(props.child);
+  const ch = props && props.children;
+  if (ch && Array.isArray(ch.explicitList)) for (const c of ch.explicitList) if (typeof c === "string") ids.push(c);
+  return ids;
+}
+
+// A2UI icon names are camelCase (locationOn); Material Symbols wants snake_case.
+function iconName(n) { return String(n || "").replace(/([a-z0-9])([A-Z])/g, "$1_$2").replace(/\s+/g, "_").toLowerCase(); }
+
+function buildNode(id, comps, seen) {
+  if (!id || seen.has(id)) return null;   // missing / cycle guard
+  seen.add(id);
+  const spec = comps[id];
+  if (!spec || typeof spec !== "object") return null;
+  const type = Object.keys(spec)[0];
+  const props = spec[type] || {};
+  const kids = () => childIds(props).map(cid => buildNode(cid, comps, seen)).filter(Boolean);
+
+  switch (type) {
+    case "Card": {
+      const d = el("div", "a2card"); kids().forEach(n => d.appendChild(n)); return d;
+    }
+    case "Column":
+    case "List": {
+      const horizontal = type === "List" && props.direction === "horizontal";
+      const d = el("div", horizontal ? "a2row" : "a2col"); kids().forEach(n => d.appendChild(n)); return d;
+    }
+    case "Row": {
+      const d = el("div", "a2row" + (props.distribution === "spaceBetween" ? " between" : ""));
+      kids().forEach(n => d.appendChild(n)); return d;
+    }
+    case "Text": {
+      const t = el("div", "a2text");
+      const hint = String(props.usageHint || "body").toLowerCase();
+      if (["h1", "h2", "h3", "h4", "h5", "h6"].includes(hint)) t.classList.add("a2-" + hint);
+      else if (hint === "caption") t.classList.add("a2-caption");
+      t.textContent = boundStr(props.text);
+      return t;
+    }
+    case "Divider":
+      return el("hr", "a2divider");
+    case "Image": {
+      const src = boundStr(props.url || props.src);
+      if (!/^https?:\/\//i.test(src)) return null;   // only allow safe URLs
+      const img = el("img", "a2img"); img.src = src; img.alt = boundStr(props.alt) || ""; return img;
+    }
+    case "Icon": {
+      const s = el("span", "material-symbols-outlined"); s.textContent = iconName(boundStr(props.name) || props.name); return s;
+    }
+    default:
+      return null;   // unknown component -> skipped (text fallback covers content)
+  }
+}
+
+// Render one or more A2UI messages (beginRendering + surfaceUpdate) into `container`.
+// Returns true if anything was drawn.
+function renderSurface(messages, container) {
+  const comps = {};
+  const roots = [];
+  for (const m of messages) {
+    if (m.beginRendering && typeof m.beginRendering.root === "string") roots.push(m.beginRendering.root);
+    const su = m.surfaceUpdate;
+    if (su && Array.isArray(su.components)) for (const c of su.components) if (c && c.id && c.component) comps[c.id] = c.component;
+  }
+  let rootIds = roots.filter(r => comps[r]);
+  if (rootIds.length === 0) {   // no valid root given -> infer un-referenced components
+    const referenced = new Set();
+    for (const id in comps) { const spec = comps[id]; childIds(spec[Object.keys(spec)[0]] || {}).forEach(c => referenced.add(c)); }
+    rootIds = Object.keys(comps).filter(id => !referenced.has(id));
+  }
+  let drew = false;
+  for (const rid of rootIds) { const node = buildNode(rid, comps, new Set()); if (node) { container.appendChild(node); drew = true; } }
+  return drew;
+}
+
+// Fallback: pull every Text value out of the messages as plain text.
+function flattenText(messages) {
+  const out = [];
+  for (const m of messages) {
+    const su = m.surfaceUpdate;
+    if (su && Array.isArray(su.components)) for (const c of su.components) if (c && c.component && c.component.Text) out.push(boundStr(c.component.Text.text));
+  }
+  return out.join("\n").trim();
+}
+
+// Markdown formatter for text messages (bold, code, bullets)
+function formatMarkdown(text) {
+  const container = el("div");
+  const lines = text.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      container.appendChild(el("div", null, "\u00A0"));
+      continue;
+    }
+    const isBullet = trimmed.startsWith("- ") || trimmed.startsWith("* ") || trimmed.startsWith("• ");
+    const lineDiv = el("div", isBullet ? "text-bullet" : "");
+    const cleanLine = isBullet ? trimmed.replace(/^[-*•]\s+/, "") : line;
+
+    // Parse **bold** and `code`
+    const tokens = cleanLine.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    for (const tok of tokens) {
+      if (tok.startsWith("**") && tok.endsWith("**")) {
+        lineDiv.appendChild(el("span", "text-bold", tok.slice(2, -2)));
+      } else if (tok.startsWith("`") && tok.endsWith("`")) {
+        lineDiv.appendChild(el("span", "text-code", tok.slice(1, -1)));
+      } else if (tok) {
+        lineDiv.appendChild(document.createTextNode(tok));
+      }
+    }
+    container.appendChild(lineDiv);
+  }
+  return container;
+}
+
+function showTypingIndicator(b) {
+  b.innerHTML = "";
+  const ind = el("div", "typing-indicator");
+  ind.appendChild(el("span", "typing-dot"));
+  ind.appendChild(el("span", "typing-dot"));
+  ind.appendChild(el("span", "typing-dot"));
+  b.appendChild(ind);
+}
+
+function renderReply(b, parts) {
+  b.innerHTML = "";   // clear the typing indicator
+  const texts = parts.filter(p => p && (p.kind === "text" || (!p.kind && p.text))).map(p => p.text || "");
+  const a2ui = parts.filter(p => p && p.kind === "a2ui" && p.data).map(p => p.data);
+
+  const textStr = texts.join("\n").trim();
+  if (textStr) b.appendChild(formatMarkdown(textStr));
+
+  if (a2ui.length) {
+    b.classList.add("rich");
+    if (!renderSurface(a2ui, b)) b.appendChild(el("div", null, flattenText(a2ui) || "(no card content)"));
+  }
+  if (!b.childNodes.length) b.textContent = "(no response)";
+  log.scrollTop = log.scrollHeight;
+}
+
+let currentUserId = "user-" + Math.random().toString(36).substring(2, 9);
+
+async function sendMessage(text) {
+  if (!text) return;
+  bubble("user").textContent = text;
+  input.value = "";
+  const b = bubble("agent");
+  showTypingIndicator(b);
+  try {
+    const res = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text, user_id: currentUserId })
+    });
+    const raw = await res.text();
+    let data;
+    try { data = JSON.parse(raw); }
+    catch { throw new Error(`Server returned non-JSON (HTTP ${res.status}). ${raw.slice(0, 300)}`); }
+    renderReply(b, data.parts || []);
+  } catch (e) {
+    b.textContent = "Error: " + e.message;
+  }
+}
+
+// Click handlers for example prompt pills
+document.querySelectorAll(".prompt-pill").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const prompt = btn.getAttribute("data-prompt");
+    if (prompt) sendMessage(prompt);
+  });
+});
+
+// Quick Expense Logger handler
+const qlSubmit = document.getElementById("qlSubmit");
+const qlAmount = document.getElementById("qlAmount");
+const qlMerchant = document.getElementById("qlMerchant");
+const qlCategory = document.getElementById("qlCategory");
+
+if (qlSubmit) {
+  qlSubmit.addEventListener("click", () => {
+    const amt = parseFloat(qlAmount.value);
+    const merchant = qlMerchant.value.trim();
+    const cat = qlCategory.value;
+    if (!amt || isNaN(amt) || amt <= 0) {
+      qlAmount.focus();
+      return;
+    }
+    const prompt = `Log $${amt.toFixed(2)} for ${cat}${merchant ? " at " + merchant : ""} today`;
+    qlAmount.value = "";
+    qlMerchant.value = "";
+    sendMessage(prompt);
+  });
+}
+
+// Reset session handler
+const clearBtn = document.getElementById("clearBtn");
+if (clearBtn) {
+  clearBtn.addEventListener("click", () => {
+    currentUserId = "user-" + Math.random().toString(36).substring(2, 9);
+    log.innerHTML = "";
+    const b = bubble("agent");
+    b.textContent = "Conversation reset. How can I help you today?";
+  });
+}
+
+// The proxy returns { parts: [{kind:"text",text} | {kind:"a2ui",data}] }.
+form.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const text = input.value.trim();
+  sendMessage(text);
+});
+</script>
+</body>
+</html>
